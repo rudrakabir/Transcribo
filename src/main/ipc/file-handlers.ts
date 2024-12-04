@@ -1,6 +1,7 @@
 import { ipcMain, dialog } from 'electron';
 import { addAudioFile, getAudioFiles, updateAudioFile, deleteAudioFile } from '../database/queries';
 import { generateFileMetadata } from '../file-system/metadata';
+import { AudioFile } from '../../shared/types';
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 
@@ -16,7 +17,7 @@ export function setupFileHandlers() {
     if (!result.canceled) {
       const files = await Promise.all(result.filePaths.map(async (filePath) => {
         const metadata = await generateFileMetadata(filePath);
-        const file = {
+        const file: AudioFile = {
           id: uuidv4(),
           path: filePath,
           fileName: path.basename(filePath),
@@ -24,7 +25,7 @@ export function setupFileHandlers() {
           duration: metadata.duration,
           createdAt: new Date(),
           modifiedAt: new Date(),
-          transcriptionStatus: 'unprocessed',
+          transcriptionStatus: 'unprocessed' as const,
           metadata
         };
         addAudioFile(file);

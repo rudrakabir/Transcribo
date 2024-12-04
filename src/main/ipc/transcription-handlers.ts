@@ -1,17 +1,27 @@
 import { ipcMain } from 'electron';
+import { getSettings } from '../database/queries';
+import { transcriptionQueue } from '../transcription/queue-manager';
+import { TranscriptionJob } from '../../shared/types';
 
 export function setupTranscriptionHandlers() {
-  // Placeholder for transcription handlers
-  // Will implement with Whisper integration
-  ipcMain.handle('startTranscription', async () => {
-    // TODO: Implement with Whisper
+  // Start transcription
+  ipcMain.handle('startTranscription', async (_, fileId: string) => {
+    const settings = getSettings();
+    
+    const job: TranscriptionJob = {
+      fileId,
+      audioPath: '', // Get from database
+      modelName: settings.whisperModel,
+      language: settings.language
+    };
+
+    await transcriptionQueue.add(job);
+    return true;
   });
 
-  ipcMain.handle('cancelTranscription', async () => {
-    // TODO: Implement with Whisper
-  });
-
-  ipcMain.handle('updateTranscription', async () => {
-    // TODO: Implement with Whisper
+  // Cancel transcription
+  ipcMain.handle('cancelTranscription', async (_, fileId: string) => {
+    await transcriptionQueue.cancel(fileId);
+    return true;
   });
 }
