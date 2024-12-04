@@ -17,3 +17,4 @@ var IpcChannels;
     IpcChannels["GET_SETTINGS"] = "get-settings";
     IpcChannels["UPDATE_SETTINGS"] = "update-settings";
 })(IpcChannels || (exports.IpcChannels = IpcChannels = {}));
+//# sourceMappingURL=ipc-types.js.map

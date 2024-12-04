@@ -1,9 +1,16 @@
 import { ipcMain } from 'electron';
-import { ModelManager } from '../transcription/model-manager';
+import { setupSettingsHandlers } from './settings-handlers';
+import { setupFileHandlers } from './file-handlers';
+import { setupTranscriptionHandlers } from './transcription-handlers';
+import { setupModelHandlers } from './model-handlers';
 
-// Create instances
-const modelManager = new ModelManager();
-
-export function setupIpcHandlers() {
-  // Your other handlers here...
+export async function setupIpcHandlers() {
+  // Set up all handlers
+  setupSettingsHandlers();
+  setupFileHandlers();
+  setupTranscriptionHandlers();
+  setupModelHandlers();
+  
+  // Log registered handlers for debugging
+  console.log('IPC Handlers initialized successfully');
 }

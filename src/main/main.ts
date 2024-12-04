@@ -6,12 +6,20 @@ import './database'; // Initialize database first
 let mainWindow: BrowserWindow | null = null;
 
 const createWindow = () => {
+  // Determine preload path based on environment
+  const preloadPath = process.env.NODE_ENV === 'development'
+    ? path.join(__dirname, '../../dist/preload.js')
+    : path.join(__dirname, '../preload.js');
+
+  console.log('Using preload script at:', preloadPath);
+
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
     webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false,
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: preloadPath,
     },
   });
 
@@ -19,7 +27,7 @@ const createWindow = () => {
     mainWindow.loadURL('http://localhost:5173');
     mainWindow.webContents.openDevTools();
   } else {
-    mainWindow.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
+    mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
   }
 };
 

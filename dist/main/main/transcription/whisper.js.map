@@ -1,0 +1,1 @@
+{"version":3,"file":"whisper.js","sourceRoot":"","sources":["../../../../src/main/transcription/whisper.ts"],"names":[],"mappings":";;;;;;AAAA,gDAAwB;AAGxB,0CAA0C;AAC1C,MAAa,cAAc;IAGzB;QACE,IAAI,CAAC,SAAS,GAAG,cAAI,CAAC,IAAI,CAAC,OAAO,CAAC,GAAG,EAAE,EAAE,QAAQ,EAAE,SAAS,EAAE,QAAQ,CAAC,CAAC;IAC3E,CAAC;CACF;AAND,wCAMC"}

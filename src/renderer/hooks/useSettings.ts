@@ -1,17 +1,16 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Settings } from '../../shared/types';
-const { ipcRenderer } = window.require('electron');
 
 export function useSettings() {
   const queryClient = useQueryClient();
 
   const { data: settings, isLoading } = useQuery<Settings>(['settings'], async () => {
-    return await ipcRenderer.invoke('getSettings');
+    return await window.electron.invoke('getSettings');
   });
 
   const updateMutation = useMutation(
     async (updates: Partial<Settings>) => {
-      await ipcRenderer.invoke('updateSettings', updates);
+      await window.electron.invoke('updateSettings', updates);
     },
     {
       onSuccess: () => {
@@ -25,7 +24,7 @@ export function useSettings() {
   };
 
   const addWatchFolder = async () => {
-    const folder = await ipcRenderer.invoke('selectDirectory');
+    const folder = await window.electron.invoke('selectDirectory');
     if (folder && settings) {
       const updatedFolders = [...settings.watchFolders, folder];
       await updateSettings({ watchFolders: updatedFolders });

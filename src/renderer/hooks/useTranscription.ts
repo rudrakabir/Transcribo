@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { AudioFile, TranscriptionSegment } from '../../shared/types';
-const { ipcRenderer } = window.require('electron');
 
 interface Transcription {
   segments: TranscriptionSegment[];
@@ -15,42 +14,46 @@ export function useTranscription() {
   const [isTranscribing, setIsTranscribing] = useState(false);
 
   useEffect(() => {
+    if (!activeFile) return;
+
     // Listen for transcription progress updates
-    const progressHandler = (_: any, fileId: string, currentProgress: number) => {
-      if (activeFile?.id === fileId) {
+    const progressHandler = (fileId: string, currentProgress: number) => {
+      if (activeFile.id === fileId) {
         setProgress(currentProgress);
       }
     };
 
     // Listen for transcription completion
-    const completionHandler = async (_: any, fileId: string, result: Transcription) => {
-      if (activeFile?.id === fileId) {
+    const completionHandler = async (fileId: string, result: Transcription) => {
+      if (activeFile.id === fileId) {
         setTranscription(result);
         setIsTranscribing(false);
         setProgress(100);
         
         // Update file status
-        const updatedFile = await ipcRenderer.invoke('getAudioFile', fileId);
+        const updatedFile = await window.electron.invoke('getAudioFile', fileId);
         setActiveFile(updatedFile);
       }
     };
 
     // Listen for transcription errors
-    const errorHandler = (_: any, fileId: string, error: string) => {
-      if (activeFile?.id === fileId) {
+    const errorHandler = (fileId: string, error: string) => {
+      if (activeFile.id === fileId) {
         setIsTranscribing(false);
         setProgress(0);
       }
     };
 
-    ipcRenderer.on('transcriptionProgress', progressHandler);
-    ipcRenderer.on('transcriptionComplete', completionHandler);
-    ipcRenderer.on('transcriptionError', errorHandler);
+    // Set up listeners
+    const removeProgressListener = window.electron.on('transcriptionProgress', progressHandler);
+    const removeCompletionListener = window.electron.on('transcriptionComplete', completionHandler);
+    const removeErrorListener = window.electron.on('transcriptionError', errorHandler);
 
+    // Cleanup listeners
     return () => {
-      ipcRenderer.removeListener('transcriptionProgress', progressHandler);
-      ipcRenderer.removeListener('transcriptionComplete', completionHandler);
-      ipcRenderer.removeListener('transcriptionError', errorHandler);
+      removeProgressListener();
+      removeCompletionListener();
+      removeErrorListener();
     };
   }, [activeFile]);
 
@@ -58,7 +61,7 @@ export function useTranscription() {
     try {
       setIsTranscribing(true);
       setProgress(0);
-      await ipcRenderer.invoke('startTranscription', fileId);
+      await window.electron.invoke('startTranscription', fileId);
     } catch (error) {
       setIsTranscribing(false);
       throw error;
@@ -67,7 +70,7 @@ export function useTranscription() {
 
   const cancelTranscription = async () => {
     if (activeFile) {
-      await ipcRenderer.invoke('cancelTranscription', activeFile.id);
+      await window.electron.invoke('cancelTranscription', activeFile.id);
       setIsTranscribing(false);
       setProgress(0);
     }
@@ -88,7 +91,7 @@ export function useTranscription() {
       text: updatedSegments.map(s => s.text).join(' ')
     };
 
-    await ipcRenderer.invoke('updateTranscription', activeFile.id, updatedTranscription);
+    await window.electron.invoke('updateTranscription', activeFile.id, updatedTranscription);
     setTranscription(updatedTranscription);
   };
 
