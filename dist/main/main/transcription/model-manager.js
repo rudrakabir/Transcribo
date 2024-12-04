@@ -14,25 +14,37 @@ const MODELS = {
         name: 'ggml-tiny.bin',
         size: 75000000,
         url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin',
-        hash: '5a42fec86d47615ba1503b334f55460d'
+        hash: '5a42fec86d47615ba1503b334f55460d',
+        downloaded: false,
+        downloadProgress: 0,
+        downloadStatus: 'pending'
     },
     'base': {
         name: 'ggml-base.bin',
         size: 142000000,
         url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin',
-        hash: '12858027fd767b6929a17c6cc816c11c'
+        hash: '12858027fd767b6929a17c6cc816c11c',
+        downloaded: false,
+        downloadProgress: 0,
+        downloadStatus: 'pending'
     },
     'small': {
         name: 'ggml-small.bin',
         size: 466000000,
         url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin',
-        hash: '221ea96b9274dc3fdd20671a87552c45'
+        hash: '221ea96b9274dc3fdd20671a87552c45',
+        downloaded: false,
+        downloadProgress: 0,
+        downloadStatus: 'pending'
     },
     'medium': {
         name: 'ggml-medium.bin',
         size: 1500000000,
         url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin',
-        hash: '5cf52a471388ce5a7785c2a2c5b2e45e'
+        hash: '5cf52a471388ce5a7785c2a2c5b2e45e',
+        downloaded: false,
+        downloadProgress: 0,
+        downloadStatus: 'pending'
     }
 };
 class ModelManager {
@@ -67,6 +79,10 @@ class ModelManager {
             throw new Error(`Unknown model: ${modelName}`);
         }
         const modelPath = path_1.default.join(this.modelsDir, model.name);
+        // Type guard for hash and url
+        if (!model.hash || !model.url) {
+            throw new Error('Model hash or URL not found');
+        }
         if (await this.verifyModel(modelPath, model.hash)) {
             return;
         }

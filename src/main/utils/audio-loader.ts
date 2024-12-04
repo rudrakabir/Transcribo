@@ -35,15 +35,20 @@ export async function loadAudioFile(filePath: string): Promise<Float32Array> {
     ]);
 
     // Read the converted file
-    const data = await ffmpeg.readFile('output.wav');
+    const wavData = await ffmpeg.readFile('output.wav') as Uint8Array;
 
     // Clean up
     await ffmpeg.deleteFile('input');
     await ffmpeg.deleteFile('output.wav');
 
-    // Convert Uint8Array to Float32Array
     // Skip WAV header (44 bytes) and convert to float
-    const samples = new Int16Array(data.buffer, 44);
+    const samples = new Int16Array(
+      wavData.buffer.slice(
+        wavData.byteOffset + 44, 
+        wavData.byteOffset + wavData.byteLength
+      )
+    );
+    
     const float32Samples = new Float32Array(samples.length);
     
     for (let i = 0; i < samples.length; i++) {

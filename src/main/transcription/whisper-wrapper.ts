@@ -25,6 +25,7 @@ interface WhisperResult {
 }
 
 interface WhisperSegment {
+  id: number;
   start: number;
   end: number;
   text: string;
@@ -75,7 +76,7 @@ export class WhisperWrapper {
 
       return {
         text: result.text,
-        segments: result.segments.map(this.convertSegment),
+        segments: this.convertSegments(result.segments),
         language: result.language,
         duration: result.duration
       };
@@ -85,13 +86,14 @@ export class WhisperWrapper {
     }
   }
 
-  private convertSegment(segment: WhisperSegment): TranscriptionSegment {
-    return {
+  private convertSegments(segments: WhisperSegment[]): TranscriptionSegment[] {
+    return segments.map((segment) => ({
+      id: segment.id,
       start: segment.start,
       end: segment.end,
       text: segment.text,
       confidence: segment.confidence
-    };
+    }));
   }
 
   public release(): void {

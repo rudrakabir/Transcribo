@@ -40,7 +40,7 @@ class WhisperWrapper {
             });
             return {
                 text: result.text,
-                segments: result.segments.map(this.convertSegment),
+                segments: this.convertSegments(result.segments),
                 language: result.language,
                 duration: result.duration
             };
@@ -50,13 +50,14 @@ class WhisperWrapper {
             throw new Error(`Transcription failed: ${errorMessage}`);
         }
     }
-    convertSegment(segment) {
-        return {
+    convertSegments(segments) {
+        return segments.map((segment) => ({
+            id: segment.id,
             start: segment.start,
             end: segment.end,
             text: segment.text,
             confidence: segment.confidence
-        };
+        }));
     }
     release() {
         if (this.context) {
