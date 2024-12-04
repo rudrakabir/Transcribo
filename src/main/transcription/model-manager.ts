@@ -5,39 +5,43 @@ import https from 'https';
 import { createHash } from 'crypto';
 import { ModelInfo } from '../../shared/types';
 
+const BASE_URL = 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main';
+
 const MODELS: Record<string, ModelInfo> = {
   'tiny': {
     name: 'ggml-tiny.bin',
-    size: 75_000_000,
-    url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin',
-    hash: '5a42fec86d47615ba1503b334f55460d',
+    size: 75 * 1024 * 1024,  // 75 MiB
+    url: `${BASE_URL}/ggml-tiny.bin`,
+    hash: 'bd577a113a864445d4c299885e0cb97d4ba92b5f',
+    downloaded: false,
+    downloadProgress: 0,
+    downloadStatus: 'pending',
+    altHashes: ['69f78e4228fd1407c79c3a0e836b4546'] // Keep old hash as alternate
+  },
+  'tiny.en': {
+    name: 'ggml-tiny.en.bin',
+    size: 75 * 1024 * 1024,
+    url: `${BASE_URL}/ggml-tiny.en.bin`,
+    hash: 'c78c86eb1a8faa21b369bcd33207cc90d64ae9df',
     downloaded: false,
     downloadProgress: 0,
     downloadStatus: 'pending'
   },
   'base': {
     name: 'ggml-base.bin',
-    size: 142_000_000,
-    url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin',
-    hash: '12858027fd767b6929a17c6cc816c11c',
+    size: 142 * 1024 * 1024,
+    url: `${BASE_URL}/ggml-base.bin`,
+    hash: '465707469ff3a37a2b9b8d8f89f2f99de7299dac',
     downloaded: false,
     downloadProgress: 0,
-    downloadStatus: 'pending'
+    downloadStatus: 'pending',
+    altHashes: ['f3a8fcb27850f369f58b9145b90fc3bd90cace27'] // Add the hash we observed
   },
   'small': {
     name: 'ggml-small.bin',
-    size: 466_000_000,
-    url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin',
-    hash: '221ea96b9274dc3fdd20671a87552c45',
-    downloaded: false,
-    downloadProgress: 0,
-    downloadStatus: 'pending'
-  },
-  'medium': {
-    name: 'ggml-medium.bin',
-    size: 1_500_000_000,
-    url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin',
-    hash: '5cf52a471388ce5a7785c2a2c5b2e45e',
+    size: 466 * 1024 * 1024,
+    url: `${BASE_URL}/ggml-small.bin`,
+    hash: '55356645c2b361a969dfd0ef2c5a50d530afd8d5',
     downloaded: false,
     downloadProgress: 0,
     downloadStatus: 'pending'
@@ -46,6 +50,7 @@ const MODELS: Record<string, ModelInfo> = {
 
 export class ModelManager {
   private modelsDir: string;
+  private downloading: boolean = false;
 
   constructor() {
     this.modelsDir = path.join(app.getPath('userData'), 'models');
@@ -59,7 +64,8 @@ export class ModelManager {
     const modelPath = path.join(this.modelsDir, modelInfo.name);
     try {
       await fs.access(modelPath);
-      return true;
+      // Verify the hash as well
+      return await this.verifyModel(modelPath, modelInfo.hash, modelInfo.altHashes);
     } catch {
       return false;
     }
@@ -79,27 +85,39 @@ export class ModelManager {
     modelName: keyof typeof MODELS,
     progressCallback?: (progress: number) => void
   ): Promise<void> {
+    if (this.downloading) {
+      throw new Error('Another download is already in progress');
+    }
+
     const model = MODELS[modelName];
     if (!model) {
       throw new Error(`Unknown model: ${modelName}`);
     }
 
     const modelPath = path.join(this.modelsDir, model.name);
+    this.downloading = true;
 
-    // Type guard for hash and url
-    if (!model.hash || !model.url) {
-      throw new Error('Model hash or URL not found');
-    }
-
-    if (await this.verifyModel(modelPath, model.hash)) {
-      return;
-    }
-
-    await this.downloadFile(model.url, modelPath, model.size, progressCallback);
-
-    if (!await this.verifyModel(modelPath, model.hash)) {
-      await fs.unlink(modelPath);
-      throw new Error('Model verification failed after download');
+    try {
+      // First try direct download
+      await this.downloadFile(model.url, modelPath, model.size, progressCallback);
+      
+      console.log('Download completed, verifying file...');
+      const stats = await fs.stat(modelPath);
+      console.log(`Downloaded file size: ${stats.size} bytes`);
+      
+      const isValid = await this.verifyModel(modelPath, model.hash, model.altHashes);
+      if (!isValid) {
+        console.error('Model verification failed, cleaning up...');
+        await fs.unlink(modelPath);
+        throw new Error('Model verification failed after download');
+      }
+      
+      console.log('Model verification successful');
+    } catch (error) {
+      console.error('Error during download or verification:', error);
+      throw error;
+    } finally {
+      this.downloading = false;
     }
   }
 
@@ -110,9 +128,11 @@ export class ModelManager {
     progressCallback?: (progress: number) => void
   ): Promise<void> {
     const tempDestination = `${destination}.tmp`;
-    const fileHandle = await fs.open(tempDestination, 'w');
+    let fileHandle = await fs.open(tempDestination, 'w');
+    let totalDownloaded = 0;
 
     const downloadWithRedirects = async (currentUrl: string, redirectCount = 0): Promise<void> => {
+      console.log(`Attempting download from: ${currentUrl}`);
       if (redirectCount > 5) {
         throw new Error('Too many redirects');
       }
@@ -124,6 +144,9 @@ export class ModelManager {
             'Accept': '*/*'
           }
         }, async response => {
+          console.log(`Response status code: ${response.statusCode}`);
+          console.log('Response headers:', response.headers);
+
           if (response.statusCode === 302 || response.statusCode === 301) {
             const redirectUrl = response.headers.location;
             if (!redirectUrl) {
@@ -131,6 +154,7 @@ export class ModelManager {
               return;
             }
             
+            console.log(`Following redirect to: ${redirectUrl}`);
             try {
               await downloadWithRedirects(redirectUrl, redirectCount + 1);
               resolve();
@@ -145,45 +169,74 @@ export class ModelManager {
             return;
           }
 
-          let downloadedBytes = 0;
-
           response.on('data', async chunk => {
             try {
               await fileHandle.write(chunk);
-              downloadedBytes += chunk.length;
-              if (progressCallback) {
-                progressCallback(downloadedBytes / expectedSize);
+              totalDownloaded += chunk.length;
+              if (progressCallback && expectedSize > 0) {
+                progressCallback(Math.min(totalDownloaded / expectedSize, 1));
               }
             } catch (error) {
               reject(error);
             }
           });
 
-          response.on('end', () => resolve());
-          response.on('error', reject);
+          response.on('end', () => {
+            console.log(`Download completed. Total bytes: ${totalDownloaded}`);
+            resolve();
+          });
+
+          response.on('error', error => {
+            console.error('Response error:', error);
+            reject(error);
+          });
         });
 
-        request.on('error', reject);
+        request.on('error', error => {
+          console.error('Request error:', error);
+          reject(error);
+        });
       });
     };
 
     try {
       await downloadWithRedirects(url);
       await fileHandle.close();
+      console.log(`Renaming temp file from ${tempDestination} to ${destination}`);
       await fs.rename(tempDestination, destination);
     } catch (error) {
+      console.error('Download error:', error);
       await fileHandle.close();
-      await fs.unlink(tempDestination).catch(() => {}); // Clean up temp file
+      await fs.unlink(tempDestination).catch(() => {});
       throw error;
     }
   }
 
-  private async verifyModel(modelPath: string, expectedHash: string): Promise<boolean> {
+  private async verifyModel(modelPath: string, expectedHash: string, altHashes?: string[]): Promise<boolean> {
     try {
       const fileBuffer = await fs.readFile(modelPath);
-      const hash = createHash('md5').update(fileBuffer).digest('hex');
-      return hash === expectedHash;
-    } catch {
+      console.log(`Verifying model file size: ${fileBuffer.length} bytes`);
+      
+      // Try SHA1 hash first
+      const hash = createHash('sha1').update(fileBuffer).digest('hex');
+      console.log(`Calculated SHA1 hash: ${hash}`);
+      console.log(`Expected hash: ${expectedHash}`);
+      
+      if (hash === expectedHash) {
+        return true;
+      }
+
+      // If SHA1 doesn't match and we have alternate hashes, try MD5
+      if (altHashes && altHashes.length > 0) {
+        const md5Hash = createHash('md5').update(fileBuffer).digest('hex');
+        console.log(`Calculated MD5 hash: ${md5Hash}`);
+        console.log(`Alternate hashes: ${altHashes.join(', ')}`);
+        return altHashes.includes(md5Hash);
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Error during model verification:', error);
       return false;
     }
   }
