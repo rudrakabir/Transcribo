@@ -45,7 +45,7 @@ export interface TranscriptionOptions {
   initialPrompt?: string;
   temperature?: number;
   wordTimestamps?: boolean;
-  useGPU?: boolean; // Added this
+  useGPU?: boolean;
 }
 
 export interface TranscriptionProgress {
@@ -58,7 +58,7 @@ export interface TranscriptionSegment {
   start: number;
   end: number;
   text: string;
-  confidence?: number; // Added this
+  confidence?: number;
   words?: Array<{
     word: string;
     start: number;
@@ -71,20 +71,21 @@ export interface TranscriptionResult {
   text: string;
   segments: TranscriptionSegment[];
   language: string;
-  duration?: number; // Added this
+  duration?: number;
 }
 
 export interface ModelInfo {
   name: string;
   size: number;
+  url: string;
+  hash: string;
   downloaded: boolean;
-  downloadProgress?: number;
-  downloadStatus?: 'pending' | 'downloading' | 'completed' | 'error';
+  downloadProgress: number;
+  downloadStatus: 'pending' | 'downloading' | 'completed' | 'error';
   error?: string;
-  url?: string; // Added this
-  hash?: string; // Added this
+  altHashes?: string[];  // Added this
 }
 
 export interface FileData {
-  buffer: ArrayBuffer; // Added this
+  buffer: ArrayBuffer;
 }
