@@ -21,17 +21,23 @@
     "cflags!": ["-fno-exceptions"],
     "cflags_cc!": ["-fno-exceptions"],
     "cflags": ["-DNDEBUG"],
-    "cflags_cc": ["-std=c++11", "-O3", "-DNDEBUG"],
+    "cflags_cc": ["-std=c++17", "-O3", "-DNDEBUG"],
     "xcode_settings": {
       "GCC_ENABLE_CPP_EXCEPTIONS": "YES",
       "CLANG_CXX_LIBRARY": "libc++",
-      "MACOSX_DEPLOYMENT_TARGET": "10.15",
+      "MACOSX_DEPLOYMENT_TARGET": "14.0",
       "OTHER_CFLAGS": [
-        "-mmacosx-version-min=10.15",
-        "-std=c++11",
+        "-mmacosx-version-min=14.0",
+        "-std=c++17",
         "-O3",
         "-DNDEBUG"
       ]
+    },
+    "msvs_settings": {
+      "VCCLCompilerTool": {
+        "ExceptionHandling": 1,
+        "AdditionalOptions": ["/std:c++17"]
+      }
     },
     "defines": ["NAPI_CPP_EXCEPTIONS"]
   }]

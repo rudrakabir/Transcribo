@@ -20,7 +20,52 @@ export class TranscriptionQueue {
     this.maxConcurrent = maxConcurrent;
   }
 
-  // ... (earlier methods remain the same)
+  public setMaxConcurrent(limit: number): void {
+    if (limit < 1) throw new Error('Concurrent limit must be at least 1');
+    this.maxConcurrent = limit;
+    this.processQueue();
+  }
+
+  public addToQueue(item: QueueItem): void {
+    this.queue.push(item);
+    updateAudioFile(item.id, {
+      transcriptionStatus: 'pending',
+      transcriptionMetadata: { progress: 0 }
+    });
+    this.processQueue();
+  }
+
+  public cancelTranscription(id: string): void {
+    const worker = this.workers.get(id);
+    if (worker) {
+      worker.postMessage({ type: 'cancel' });
+      this.cleanup(id);
+    }
+    // Remove from queue if not yet processing
+    this.queue = this.queue.filter(item => item.id !== id);
+  }
+
+  public getQueueLength(): number {
+    return this.queue.length;
+  }
+
+  public getProcessingCount(): number {
+    return this.processing.size;
+  }
+
+  public getConcurrentLimit(): number {
+    return this.maxConcurrent;
+  }
+
+  private cleanup(id: string): void {
+    const worker = this.workers.get(id);
+    if (worker) {
+      worker.terminate();
+      this.workers.delete(id);
+    }
+    this.processing.delete(id);
+    this.processQueue();
+  }
 
   private async processQueue(): Promise<void> {
     if (this.processing.size >= this.maxConcurrent || this.queue.length === 0) {
@@ -136,6 +181,4 @@ export class TranscriptionQueue {
       this.cleanup(item.id);
     });
   }
-
-  // ... (rest of the methods remain the same)
 }

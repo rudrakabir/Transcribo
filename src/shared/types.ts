@@ -29,4 +29,53 @@ export interface TranscriptionMetadata {
   error?: string;
 }
 
-// ... (rest of the types remain the same)
+export interface Settings {
+  watchFolders: string[];
+  whisperModel: string;
+  autoTranscribe: boolean;
+  language?: string;
+  maxConcurrentTranscriptions: number;
+  useGPU: boolean;
+}
+
+export interface TranscriptionOptions {
+  model: string;
+  language?: string;
+  task?: 'transcribe' | 'translate';
+  initialPrompt?: string;
+  temperature?: number;
+  wordTimestamps?: boolean;
+}
+
+export interface TranscriptionProgress {
+  progress: number;
+  timeElapsed: number;
+}
+
+export interface TranscriptionSegment {
+  id: number;
+  start: number;
+  end: number;
+  text: string;
+  words?: Array<{
+    word: string;
+    start: number;
+    end: number;
+    probability: number;
+  }>;
+}
+
+export interface TranscriptionResult {
+  text: string;
+  segments: TranscriptionSegment[];
+  language: string;
+}
+
+export interface ModelInfo {
+  name: string;
+  size: number;
+  downloaded: boolean;
+  downloadProgress?: number;
+  downloadStatus?: 'pending' | 'downloading' | 'completed' | 'error';
+  error?: string;
+}

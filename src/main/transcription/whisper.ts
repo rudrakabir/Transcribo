@@ -3,6 +3,7 @@ import { app } from 'electron';
 import { WhisperWrapper } from './whisper-wrapper';
 import { promises as fs } from 'fs';
 import { TranscriptionOptions, TranscriptionProgress, TranscriptionResult } from '../../shared/types';
+import { loadAudioFile } from '../utils/audio-loader'; // We'll create this utility
 
 export class WhisperService {
   private modelsDir: string;
@@ -44,14 +45,16 @@ export class WhisperService {
     }
 
     try {
+      // Load and convert audio file to Float32Array
+      const audioData = await loadAudioFile(audioPath);
+      
       const startTime = Date.now();
-      const result = await this.whisper.transcribe(audioPath, {
+      const result = await this.whisper.transcribe(audioData, {
         ...options,
         onProgress: (progress: number) => {
           if (progressCallback) {
             progressCallback({
               progress,
-              status: 'processing',
               timeElapsed: Date.now() - startTime
             });
           }

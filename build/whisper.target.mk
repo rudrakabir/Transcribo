@@ -25,7 +25,7 @@ DEFS_Debug := \
 CFLAGS_Debug := \
 	-O0 \
 	-gdwarf-2 \
-	-mmacosx-version-min=10.15 \
+	-mmacosx-version-min=14.0 \
 	-arch \
 	arm64 \
 	-Wall \
@@ -36,8 +36,8 @@ CFLAGS_Debug := \
 # Flags passed to only C files.
 CFLAGS_C_Debug := \
 	-fno-strict-aliasing \
-	-mmacosx-version-min=10.15 \
-	-std=c++11 \
+	-mmacosx-version-min=14.0 \
+	-std=c++17 \
 	-O3 \
 	-DNDEBUG
 
@@ -47,8 +47,8 @@ CFLAGS_CC_Debug := \
 	-stdlib=libc++ \
 	-fno-rtti \
 	-fno-strict-aliasing \
-	-mmacosx-version-min=10.15 \
-	-std=c++11 \
+	-mmacosx-version-min=14.0 \
+	-std=c++17 \
 	-O3 \
 	-DNDEBUG
 
@@ -92,7 +92,7 @@ DEFS_Release := \
 CFLAGS_Release := \
 	-O3 \
 	-gdwarf-2 \
-	-mmacosx-version-min=10.15 \
+	-mmacosx-version-min=14.0 \
 	-arch \
 	arm64 \
 	-Wall \
@@ -103,8 +103,8 @@ CFLAGS_Release := \
 # Flags passed to only C files.
 CFLAGS_C_Release := \
 	-fno-strict-aliasing \
-	-mmacosx-version-min=10.15 \
-	-std=c++11 \
+	-mmacosx-version-min=14.0 \
+	-std=c++17 \
 	-O3 \
 	-DNDEBUG
 
@@ -114,8 +114,8 @@ CFLAGS_CC_Release := \
 	-stdlib=libc++ \
 	-fno-rtti \
 	-fno-strict-aliasing \
-	-mmacosx-version-min=10.15 \
-	-std=c++11 \
+	-mmacosx-version-min=14.0 \
+	-std=c++17 \
 	-O3 \
 	-DNDEBUG
 
@@ -175,7 +175,7 @@ $(obj).$(TOOLSET)/$(TARGET)/%.o: $(obj)/%.cpp FORCE_DO_CMD
 LDFLAGS_Debug := \
 	-undefined dynamic_lookup \
 	-Wl,-search_paths_first \
-	-mmacosx-version-min=10.15 \
+	-mmacosx-version-min=14.0 \
 	-arch \
 	arm64 \
 	-L$(builddir) \
@@ -188,7 +188,7 @@ LIBTOOLFLAGS_Debug := \
 LDFLAGS_Release := \
 	-undefined dynamic_lookup \
 	-Wl,-search_paths_first \
-	-mmacosx-version-min=10.15 \
+	-mmacosx-version-min=14.0 \
 	-arch \
 	arm64 \
 	-L$(builddir) \
