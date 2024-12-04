@@ -1,58 +1,93 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Box,
   Button,
-  VStack,
-  HStack,
-  Text,
+  Card,
+  CardBody,
+  CardHeader,
+  Heading,
   Progress,
-  Badge,
-  IconButton,
+  SimpleGrid,
+  Stack,
+  Text,
   useToast,
 } from '@chakra-ui/react';
-import { DeleteIcon, DownloadIcon } from '@chakra-ui/icons';
-import { useModels } from '../hooks/useModels';
-import { useSettings } from '../hooks/useSettings';
+import { DownloadIcon, CheckIcon } from '@chakra-ui/icons';
 
-const AVAILABLE_MODELS = [
-  'tiny',
-  'tiny.en',
-  'base',
-  'base.en',
-  'small',
-  'small.en',
-  'medium',
-  'medium.en',
-  'large-v1',
-  'large'
-] as const;
+interface ModelInfo {
+  url: string;
+  size: number;
+  hash: string;
+}
+
+interface ModelDownloadProgress {
+  [modelName: string]: number;
+}
 
 export const ModelManager: React.FC = () => {
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [downloadProgress, setDownloadProgress] = useState<ModelDownloadProgress>({});
+  const [modelInfo, setModelInfo] = useState<{ [key: string]: ModelInfo }>({});
   const toast = useToast();
-  const { settings } = useSettings();
-  const {
-    downloadedModels,
-    isLoadingModels,
-    isDownloading,
-    modelSizes,
-    downloadModel,
-    deleteModel
-  } = useModels();
 
-  const handleDownload = async (modelName: string) => {
+  useEffect(() => {
+    // Load initial model states
+    refreshModelStates();
+
+    // Listen for download progress updates
+    window.electron.on('model-download-progress', ({ modelName, progress }) => {
+      setDownloadProgress(prev => ({
+        ...prev,
+        [modelName]: progress
+      }));
+    });
+
+    return () => {
+      // Cleanup listeners
+      window.electron.removeAllListeners('model-download-progress');
+    };
+  }, []);
+
+  const refreshModelStates = async () => {
     try {
-      await downloadModel(modelName);
+      const models = await window.electron.invoke('get-available-models');
+      setAvailableModels(models);
+
+      // Get info for all models
+      const modelNames = ['tiny', 'base', 'small', 'medium', 'large-v3'];
+      const infoPromises = modelNames.map(async name => {
+        const info = await window.electron.invoke('get-model-info', name);
+        return [name, info];
+      });
+
+      const infos = await Promise.all(infoPromises);
+      setModelInfo(Object.fromEntries(infos));
+    } catch (error) {
+      console.error('Failed to refresh model states:', error);
+    }
+  };
+
+  const downloadModel = async (modelName: string) => {
+    try {
+      const result = await window.electron.invoke('download-model', modelName);
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      
       toast({
-        title: 'Model downloaded',
+        title: 'Download Complete',
         description: `Successfully downloaded ${modelName} model`,
         status: 'success',
         duration: 5000,
         isClosable: true,
       });
+
+      // Refresh available models
+      await refreshModelStates();
     } catch (error) {
       toast({
-        title: 'Download failed',
-        description: error instanceof Error ? error.message : 'Unknown error',
+        title: 'Download Failed',
+        description: error instanceof Error ? error.message : 'Unknown error occurred',
         status: 'error',
         duration: 5000,
         isClosable: true,
@@ -60,86 +95,75 @@ export const ModelManager: React.FC = () => {
     }
   };
 
-  const handleDelete = async (modelName: string) => {
-    if (modelName === settings?.whisperModel) {
-      toast({
-        title: 'Cannot delete model',
-        description: 'This model is currently selected in settings',
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      });
-      return;
+  const formatSize = (bytes: number): string => {
+    const gb = bytes / (1024 * 1024 * 1024);
+    if (gb >= 1) {
+      return `${gb.toFixed(1)} GB`;
     }
-
-    try {
-      await deleteModel(modelName);
-      toast({
-        title: 'Model deleted',
-        description: `Successfully deleted ${modelName} model`,
-        status: 'success',
-        duration: 5000,
-        isClosable: true,
-      });
-    } catch (error) {
-      toast({
-        title: 'Delete failed',
-        description: error instanceof Error ? error.message : 'Unknown error',
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      });
-    }
+    const mb = bytes / (1024 * 1024);
+    return `${mb.toFixed(1)} MB`;
   };
 
   return (
-    <Box>
-      <VStack spacing={4} align="stretch">
-        <Text fontWeight="bold" mb={2}>Available Models</Text>
-        
-        {AVAILABLE_MODELS.map(modelName => {
-          const isDownloaded = downloadedModels.includes(modelName);
-          const size = modelSizes[modelName] || 0;
-          
-          return (
-            <HStack key={modelName} justify="space-between" p={2} borderWidth="1px" borderRadius="md">
-              <VStack align="start" spacing={1}>
-                <Text fontWeight="medium">{modelName}</Text>
-                <Text fontSize="sm" color="gray.600">{size}MB</Text>
-              </VStack>
+    <Card>
+      <CardHeader>
+        <Heading size="md">Whisper Models</Heading>
+      </CardHeader>
+      <CardBody>
+        <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4}>
+          {['tiny', 'base', 'small', 'medium', 'large-v3'].map((modelName) => {
+            const isDownloaded = availableModels.includes(modelName);
+            const progress = downloadProgress[modelName] || 0;
+            const info = modelInfo[modelName];
+            const isDownloading = progress > 0 && progress < 100;
 
-              <HStack>
-                {isDownloaded ? (
-                  <>
-                    <Badge colorScheme="green">Downloaded</Badge>
-                    <IconButton
-                      aria-label="Delete model"
-                      icon={<DeleteIcon />}
-                      size="sm"
-                      colorScheme="red"
-                      variant="ghost"
-                      isDisabled={modelName === settings?.whisperModel}
-                      onClick={() => handleDelete(modelName)}
-                    />
-                  </>
-                ) : (
-                  <Button
-                    leftIcon={<DownloadIcon />}
-                    size="sm"
-                    colorScheme="blue"
-                    isLoading={isDownloading}
-                    onClick={() => handleDownload(modelName)}
-                  >
-                    Download
-                  </Button>
-                )}
-              </HStack>
-            </HStack>
-          );
-        })}
+            return (
+              <Card key={modelName} variant="outline">
+                <CardBody>
+                  <Stack spacing={3}>
+                    <Heading size="sm" textTransform="capitalize">
+                      {modelName}
+                    </Heading>
+                    
+                    {info && (
+                      <Text fontSize="sm" color="gray.600">
+                        Size: {formatSize(info.size)}
+                      </Text>
+                    )}
 
-        {isLoadingModels && <Progress size="xs" isIndeterminate />}
-      </VStack>
-    </Box>
+                    {isDownloading && (
+                      <Box>
+                        <Progress 
+                          value={progress} 
+                          size="sm" 
+                          colorScheme="blue" 
+                          mb={2}
+                        />
+                        <Text fontSize="sm" color="gray.600">
+                          {progress.toFixed(1)}% Complete
+                        </Text>
+                      </Box>
+                    )}
+
+                    {!isDownloading && (
+                      <Button
+                        leftIcon={isDownloaded ? <CheckIcon /> : <DownloadIcon />}
+                        colorScheme={isDownloaded ? "green" : "blue"}
+                        onClick={() => !isDownloaded && downloadModel(modelName)}
+                        isDisabled={isDownloaded}
+                      >
+                        {isDownloaded ? 'Downloaded' : 'Download'}
+                      </Button>
+                    )}
+                  </Stack>
+                </CardBody>
+              </Card>
+            );
+          })}
+        </SimpleGrid>
+      </CardBody>
+    </Card>
   );
 };
+
+export default ModelManager;

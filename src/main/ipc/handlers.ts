@@ -1,16 +1,9 @@
-import { setupSettingsHandlers } from './settings-handlers';
-import { setupFileHandlers } from './file-handlers';
-import { setupTranscriptionHandlers } from './transcription-handlers';
-import { setupModelHandlers } from './model-handlers';
-import { modelManager } from '../transcription/model-manager';
+import { ipcMain } from 'electron';
+import { ModelManager } from '../transcription/model-manager';
 
-export async function setupIpcHandlers() {
-  // Initialize model manager
-  await modelManager.initialize();
-  
-  // Setup all handlers
-  setupSettingsHandlers();
-  setupFileHandlers();
-  setupTranscriptionHandlers();
-  setupModelHandlers();
+// Create instances
+const modelManager = new ModelManager();
+
+export function setupIpcHandlers() {
+  // Your other handlers here...
 }

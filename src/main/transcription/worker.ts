@@ -1,40 +1,14 @@
-import { parentPort, workerData } from 'worker_threads';
-import { transcribe } from './whisper';
-import { TranscriptionJob } from '../../shared/types';
+import { WhisperService } from './whisper';
 
-if (!parentPort) {
-  throw new Error('This file must be run as a worker thread');
+const whisperService = new WhisperService();
+
+// Worker logic will be implemented here
+export async function processFile(filePath: string): Promise<void> {
+  // Implementation pending
+  console.log('Processing file:', filePath);
 }
 
-async function runTranscription(job: TranscriptionJob) {
-  try {
-    const { audioPath, modelName, language } = job;
-    
-    // Report start
-    parentPort?.postMessage({ type: 'status', status: 'started' });
-
-    // Initialize progress reporting
-    const progressCallback = (progress: number) => {
-      parentPort?.postMessage({ type: 'progress', progress });
-    };
-
-    // Run transcription
-    const result = await transcribe(audioPath, {
-      modelName,
-      language,
-      progressCallback,
-    });
-
-    // Report success
-    parentPort?.postMessage({ type: 'completed', result });
-  } catch (error) {
-    // Report error
-    parentPort?.postMessage({ 
-      type: 'error', 
-      error: error instanceof Error ? error.message : 'Unknown error' 
-    });
-  }
+export async function cancelProcessing(): Promise<void> {
+  // Implementation pending
+  console.log('Cancelling processing');
 }
-
-// Handle incoming job
-runTranscription(workerData as TranscriptionJob);

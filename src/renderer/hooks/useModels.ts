@@ -1,13 +1,36 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
 const { ipcRenderer } = window.require('electron');
 
 export function useModels() {
   const queryClient = useQueryClient();
+  const [downloadProgress, setDownloadProgress] = useState<Record<string, number>>({});
+  const [activeDownloads, setActiveDownloads] = useState<string[]>([]);
+
+  // Set up download progress listener
+  useEffect(() => {
+    const handleProgress = (_: any, { modelName, progress }: { modelName: string; progress: number }) => {
+      setDownloadProgress(prev => ({
+        ...prev,
+        [modelName]: progress
+      }));
+    };
+
+    ipcRenderer.on('modelDownloadProgress', handleProgress);
+
+    return () => {
+      ipcRenderer.removeListener('modelDownloadProgress', handleProgress);
+    };
+  }, []);
 
   // Get list of downloaded models
   const { data: downloadedModels = [], isLoading: isLoadingModels } = useQuery(
     ['downloadedModels'],
-    () => ipcRenderer.invoke('listDownloadedModels')
+    () => ipcRenderer.invoke('listDownloadedModels'),
+    {
+      // Refresh every 5 seconds while there are active downloads
+      refetchInterval: activeDownloads.length > 0 ? 5000 : false
+    }
   );
 
   // Get model sizes
@@ -26,14 +49,32 @@ export function useModels() {
     }
   );
 
+  // Check download progress
+  const getModelProgress = async (modelName: string): Promise<number> => {
+    return ipcRenderer.invoke('getModelDownloadProgress', modelName);
+  };
+
   // Check if a specific model is downloaded
-  const checkModelDownloaded = async (modelName: string) => {
+  const checkModelDownloaded = async (modelName: string): Promise<boolean> => {
     return ipcRenderer.invoke('isModelDownloaded', modelName);
   };
 
   // Download model mutation
   const { mutate: downloadModel, isLoading: isDownloading } = useMutation(
-    (modelName: string) => ipcRenderer.invoke('downloadModel', modelName),
+    async (modelName: string) => {
+      setActiveDownloads(prev => [...prev, modelName]);
+      try {
+        const result = await ipcRenderer.invoke('downloadModel', modelName);
+        return result;
+      } finally {
+        setActiveDownloads(prev => prev.filter(m => m !== modelName));
+        setDownloadProgress(prev => {
+          const newProgress = { ...prev };
+          delete newProgress[modelName];
+          return newProgress;
+        });
+      }
+    },
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['downloadedModels']);
@@ -43,7 +84,10 @@ export function useModels() {
 
   // Delete model mutation
   const { mutate: deleteModel } = useMutation(
-    (modelName: string) => ipcRenderer.invoke('deleteModel', modelName),
+    async (modelName: string) => {
+      const result = await ipcRenderer.invoke('deleteModel', modelName);
+      return result;
+    },
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['downloadedModels']);
@@ -58,6 +102,9 @@ export function useModels() {
     checkModelDownloaded,
     modelSizes,
     downloadModel,
-    deleteModel
+    deleteModel,
+    downloadProgress,
+    activeDownloads,
+    getModelProgress
   };
 }
