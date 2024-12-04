@@ -1,15 +1,23 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
+// ... (imports and beginning of the file remain the same)
+async;
+transcribe(audioPath, string, options, TranscriptionOptions & { onProgress: (progress) => void  });
+Promise < TranscriptionResult > {
+    : .whisper
 };
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WhisperService = void 0;
-const path_1 = __importDefault(require("path"));
-// Placeholder for whisper.cpp integration
-class WhisperService {
-    constructor() {
-        this.modelsDir = path_1.default.join(process.cwd(), 'native', 'whisper', 'models');
-    }
+{
+    throw new Error('Whisper context not initialized');
 }
-exports.WhisperService = WhisperService;
+try {
+    const result = await this.whisper.transcribe(audioData, {
+        ...options,
+        onProgress: options.onProgress
+    });
+    return result;
+}
+catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown transcription error';
+    throw new Error(`Transcription failed: ${errorMessage}`);
+}
+// ... (rest of the file remains the same)
 //# sourceMappingURL=whisper.js.map

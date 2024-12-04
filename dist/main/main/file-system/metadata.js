@@ -10,15 +10,15 @@ async function generateFileMetadata(filePath) {
     try {
         const stats = await fs_1.promises.stat(filePath);
         // Basic metadata that we can get from file stats
-        return {
-            size: stats.size,
+        const metadata = {
             format: path_1.default.extname(filePath).slice(1),
+            size: stats.size,
             // Other fields will be populated when we actually read the audio file
-            channels: undefined,
-            sampleRate: undefined,
-            bitrate: undefined,
-            duration: undefined
+            channels: 0, // Default value, will be updated when processing
+            sampleRate: 0, // Default value, will be updated when processing
+            duration: 0, // Default value, will be updated when processing
         };
+        return metadata;
     }
     catch (error) {
         console.error('Error generating metadata:', error);

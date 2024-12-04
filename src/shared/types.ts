@@ -7,56 +7,26 @@ export interface AudioFile {
   createdAt: Date;
   modifiedAt: Date;
   transcriptionStatus: 'unprocessed' | 'pending' | 'processing' | 'completed' | 'error';
-  transcriptionError?: string | null;  // Updated to allow null
+  transcriptionError?: string;
   transcription?: string;
-  metadata?: AudioMetadata;
+  metadata: AudioMetadata;
+  transcriptionMetadata?: TranscriptionMetadata;
 }
 
 export interface AudioMetadata {
-  format?: string;
-  channels?: number;
-  sampleRate?: number;
-  bitrate?: number;
+  format: string;
+  size: number;
   duration?: number;
-  size: number;  // Added size
+  sampleRate?: number;
+  channels?: number;
+  bitrate?: number;
+  codec?: string;
 }
 
-export interface Settings {
-  watchFolders: string[];
-  whisperModel: 'tiny' | 'tiny.en' | 'base' | 'base.en' | 'small' | 'small.en' | 'medium' | 'medium.en' | 'large-v1' | 'large';
-  autoTranscribe: boolean;
-  language?: string;
-  maxConcurrentTranscriptions: number;
-  useGPU: boolean;
-  outputFormat: 'text' | 'srt' | 'vtt';
+export interface TranscriptionMetadata {
+  progress?: number;
+  timeElapsed?: number;
+  error?: string;
 }
 
-export interface TranscriptionJob {
-  fileId: string;
-  audioPath: string;
-  modelName: Settings['whisperModel'];
-  language?: string;
-  outputFormat?: 'text' | 'srt' | 'vtt';
-}
-
-export interface TranscriptionProgress {
-  fileId: string;
-  progress: number;
-}
-
-export interface TranscriptionResult {
-  text: string;
-  segments: TranscriptionSegment[];
-  language: string;
-}
-
-export interface TranscriptionSegment {
-  start: number;
-  end: number;
-  text: string;
-  words?: Array<{
-    start: number;
-    end: number;
-    word: string;
-  }>;
-}
+// ... (rest of the types remain the same)

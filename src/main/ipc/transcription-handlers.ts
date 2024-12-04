@@ -1,27 +1,57 @@
 import { ipcMain } from 'electron';
+import { TranscriptionQueue } from '../transcription/queue-manager';
+import { TranscriptionOptions } from '../../shared/types';
 import { getSettings } from '../database/queries';
-import { transcriptionQueue } from '../transcription/queue-manager';
-import { TranscriptionJob } from '../../shared/types';
+import { v4 as uuidv4 } from 'uuid';
 
-export function setupTranscriptionHandlers() {
-  // Start transcription
-  ipcMain.handle('startTranscription', async (_, fileId: string) => {
+// Create a single instance of the transcription queue
+const transcriptionQueue = new TranscriptionQueue();
+
+// Initialize with settings
+const settings = getSettings();
+transcriptionQueue.setMaxConcurrent(settings.maxConcurrentTranscriptions);
+
+export function setupTranscriptionHandlers(): void {
+  // Start transcription for a file
+  ipcMain.handle('start-transcription', async (_, audioPath: string, options?: Partial<TranscriptionOptions>) => {
     const settings = getSettings();
-    
-    const job: TranscriptionJob = {
-      fileId,
-      audioPath: '', // Get from database
-      modelName: settings.whisperModel,
-      language: settings.language
+    const transcriptionId = uuidv4();
+
+    // Merge default settings with provided options
+    const fullOptions: TranscriptionOptions = {
+      model: settings.whisperModel,
+      language: settings.language,
+      useGPU: settings.useGPU,
+      ...options
     };
 
-    await transcriptionQueue.add(job);
-    return true;
+    transcriptionQueue.addToQueue({
+      id: transcriptionId,
+      audioPath,
+      options: fullOptions
+    });
+
+    return transcriptionId;
   });
 
   // Cancel transcription
-  ipcMain.handle('cancelTranscription', async (_, fileId: string) => {
-    await transcriptionQueue.cancel(fileId);
+  ipcMain.handle('cancel-transcription', async (_, id: string) => {
+    transcriptionQueue.cancelTranscription(id);
+    return true;
+  });
+
+  // Get queue status
+  ipcMain.handle('get-queue-status', () => {
+    return {
+      queueLength: transcriptionQueue.getQueueLength(),
+      processingCount: transcriptionQueue.getProcessingCount(),
+      maxConcurrent: transcriptionQueue.getConcurrentLimit()
+    };
+  });
+
+  // Update concurrent limit
+  ipcMain.handle('update-concurrent-limit', (_, limit: number) => {
+    transcriptionQueue.setMaxConcurrent(limit);
     return true;
   });
 }

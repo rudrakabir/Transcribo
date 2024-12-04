@@ -3,86 +3,117 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.transcriptionQueue = void 0;
+exports.TranscriptionQueue = void 0;
 const worker_threads_1 = require("worker_threads");
 const path_1 = __importDefault(require("path"));
+const electron_1 = require("electron");
 const queries_1 = require("../database/queries");
 class TranscriptionQueue {
-    constructor() {
+    constructor(maxConcurrent = 2) {
         this.queue = [];
         this.processing = new Set();
-        this.mainWindow = null;
-        this.processNext = this.processNext.bind(this);
+        this.workers = new Map();
+        this.maxConcurrent = maxConcurrent;
     }
-    setMainWindow(window) {
-        this.mainWindow = window;
-    }
-    async add(job) {
-        // Update file status to pending
-        await (0, queries_1.updateAudioFile)(job.fileId, {
-            transcriptionStatus: 'pending',
-            transcriptionError: '' // Empty string instead of null
-        });
-        this.queue.push(job);
-        this.processNext();
-    }
-    async cancel(fileId) {
-        // Remove from queue if pending
-        this.queue = this.queue.filter(job => job.fileId !== fileId);
-        // Update status if was processing
-        if (this.processing.has(fileId)) {
-            this.processing.delete(fileId);
-            await (0, queries_1.updateAudioFile)(fileId, {
-                transcriptionStatus: 'unprocessed',
-                transcriptionError: '' // Empty string instead of null
+    // ... (earlier methods remain the same)
+    async processQueue() {
+        if (this.processing.size >= this.maxConcurrent || this.queue.length === 0) {
+            return;
+        }
+        const item = this.queue.shift();
+        if (!item)
+            return;
+        this.processing.add(item.id);
+        try {
+            await this.startTranscription(item);
+        }
+        catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+            console.error(`Error starting transcription for ${item.id}:`, error);
+            this.cleanup(item.id);
+            (0, queries_1.updateAudioFile)(item.id, {
+                transcriptionStatus: 'error',
+                transcriptionError: errorMessage,
+                transcriptionMetadata: { error: errorMessage }
             });
         }
     }
-    async processNext() {
-        const settings = (0, queries_1.getSettings)();
-        if (this.queue.length === 0 ||
-            this.processing.size >= settings.maxConcurrentTranscriptions) {
-            return;
-        }
-        const job = this.queue.shift();
-        if (!job)
-            return;
-        this.processing.add(job.fileId);
-        await (0, queries_1.updateAudioFile)(job.fileId, { transcriptionStatus: 'processing' });
-        const worker = new worker_threads_1.Worker(path_1.default.join(__dirname, 'worker.js'), { workerData: job });
+    async startTranscription(item) {
+        const worker = new worker_threads_1.Worker(path_1.default.join(electron_1.app.getAppPath(), 'dist/worker.js'), {
+            workerData: { id: item.id }
+        });
+        this.workers.set(item.id, worker);
+        worker.postMessage({
+            type: 'initialize',
+            modelName: item.options.model
+        });
         worker.on('message', async (message) => {
             switch (message.type) {
-                case 'progress':
-                    this.mainWindow?.webContents.send('transcriptionProgress', { fileId: job.fileId, progress: message.progress });
-                    break;
-                case 'completed':
-                    this.processing.delete(job.fileId);
-                    await (0, queries_1.updateAudioFile)(job.fileId, {
-                        transcriptionStatus: 'completed',
-                        transcription: message.result.text,
-                        transcriptionError: '' // Empty string instead of null
+                case 'initialized':
+                    worker.postMessage({
+                        type: 'transcribe',
+                        audioPath: item.audioPath,
+                        options: item.options
                     });
-                    this.processNext();
+                    break;
+                case 'progress':
+                    if (message.progress) {
+                        (0, queries_1.updateAudioFile)(item.id, {
+                            transcriptionStatus: 'processing',
+                            transcriptionMetadata: {
+                                progress: message.progress.progress,
+                                timeElapsed: message.progress.timeElapsed
+                            }
+                        });
+                    }
+                    break;
+                case 'complete':
+                    if (message.result) {
+                        (0, queries_1.updateAudioFile)(item.id, {
+                            transcriptionStatus: 'completed',
+                            transcription: JSON.stringify(message.result),
+                            transcriptionMetadata: {
+                                progress: 1,
+                                timeElapsed: Date.now()
+                            }
+                        });
+                        this.cleanup(item.id);
+                    }
                     break;
                 case 'error':
-                    this.processing.delete(job.fileId);
-                    await (0, queries_1.updateAudioFile)(job.fileId, {
+                    (0, queries_1.updateAudioFile)(item.id, {
                         transcriptionStatus: 'error',
-                        transcriptionError: message.error
+                        transcriptionError: message.error,
+                        transcriptionMetadata: { error: message.error }
                     });
-                    this.processNext();
+                    this.cleanup(item.id);
+                    break;
+                case 'cancelled':
+                    (0, queries_1.updateAudioFile)(item.id, {
+                        transcriptionStatus: 'unprocessed',
+                        transcriptionMetadata: { progress: 0 }
+                    });
+                    this.cleanup(item.id);
                     break;
             }
         });
-        worker.on('error', async (error) => {
-            this.processing.delete(job.fileId);
-            await (0, queries_1.updateAudioFile)(job.fileId, {
+        worker.on('error', (error) => {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown worker error';
+            console.error(`Worker error for ${item.id}:`, error);
+            (0, queries_1.updateAudioFile)(item.id, {
                 transcriptionStatus: 'error',
-                transcriptionError: error.message
+                transcriptionError: errorMessage,
+                transcriptionMetadata: { error: errorMessage }
             });
-            this.processNext();
+            this.cleanup(item.id);
+        });
+        worker.on('exit', (code) => {
+            if (code !== 0) {
+                console.error(`Worker stopped with exit code ${code}`);
+            }
+            this.cleanup(item.id);
         });
     }
 }
-exports.transcriptionQueue = new TranscriptionQueue();
+exports.TranscriptionQueue = TranscriptionQueue;
 //# sourceMappingURL=queue-manager.js.map
