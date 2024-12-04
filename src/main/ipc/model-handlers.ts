@@ -5,6 +5,16 @@ import { ModelManager } from '../transcription/model-manager';
 const modelManager = new ModelManager();
 
 export function setupModelHandlers() {
+  // List downloaded models
+  ipcMain.handle('list-models', async () => {
+    try {
+      return await modelManager.listModels();
+    } catch (error) {
+      console.error('Error listing models:', error);
+      return [];
+    }
+  });
+
   // Download model with progress tracking
   ipcMain.handle('download-model', async (event, modelName: string) => {
     const webContents = event.sender;
@@ -40,10 +50,10 @@ export function setupModelHandlers() {
   // Get available models
   ipcMain.handle('get-available-models', async () => {
     try {
-      return await modelManager.getAvailableModels();
+      return modelManager.getAvailableModels();
     } catch (error) {
       console.error('Error getting available models:', error);
-      return [];
+      return {};
     }
   });
 }

@@ -6,6 +6,16 @@ const model_manager_1 = require("../transcription/model-manager");
 // Create a single instance
 const modelManager = new model_manager_1.ModelManager();
 function setupModelHandlers() {
+    // List downloaded models
+    electron_1.ipcMain.handle('list-models', async () => {
+        try {
+            return await modelManager.listModels();
+        }
+        catch (error) {
+            console.error('Error listing models:', error);
+            return [];
+        }
+    });
     // Download model with progress tracking
     electron_1.ipcMain.handle('download-model', async (event, modelName) => {
         const webContents = event.sender;
@@ -40,11 +50,11 @@ function setupModelHandlers() {
     // Get available models
     electron_1.ipcMain.handle('get-available-models', async () => {
         try {
-            return await modelManager.getAvailableModels();
+            return modelManager.getAvailableModels();
         }
         catch (error) {
             console.error('Error getting available models:', error);
-            return [];
+            return {};
         }
     });
 }

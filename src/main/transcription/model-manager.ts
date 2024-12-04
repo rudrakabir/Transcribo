@@ -109,34 +109,73 @@ export class ModelManager {
     expectedSize: number,
     progressCallback?: (progress: number) => void
   ): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const file = fs.open(destination, 'w');
-      let downloadedBytes = 0;
+    const tempDestination = `${destination}.tmp`;
+    const fileHandle = await fs.open(tempDestination, 'w');
 
-      https.get(url, (response) => {
-        if (response.statusCode !== 200) {
-          reject(new Error(`Download failed with status ${response.statusCode}`));
-          return;
-        }
+    const downloadWithRedirects = async (currentUrl: string, redirectCount = 0): Promise<void> => {
+      if (redirectCount > 5) {
+        throw new Error('Too many redirects');
+      }
 
-        response.on('data', async (chunk) => {
-          try {
-            const fileHandle = await file;
-            await fileHandle.write(chunk);
-            downloadedBytes += chunk.length;
-            
-            if (progressCallback) {
-              progressCallback(downloadedBytes / expectedSize);
-            }
-          } catch (error) {
-            reject(error);
+      return new Promise((resolve, reject) => {
+        const request = https.get(currentUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Transcribo)',
+            'Accept': '*/*'
           }
+        }, async response => {
+          if (response.statusCode === 302 || response.statusCode === 301) {
+            const redirectUrl = response.headers.location;
+            if (!redirectUrl) {
+              reject(new Error('Redirect location not found'));
+              return;
+            }
+            
+            try {
+              await downloadWithRedirects(redirectUrl, redirectCount + 1);
+              resolve();
+            } catch (error) {
+              reject(error);
+            }
+            return;
+          }
+
+          if (response.statusCode !== 200) {
+            reject(new Error(`HTTP error! status: ${response.statusCode}`));
+            return;
+          }
+
+          let downloadedBytes = 0;
+
+          response.on('data', async chunk => {
+            try {
+              await fileHandle.write(chunk);
+              downloadedBytes += chunk.length;
+              if (progressCallback) {
+                progressCallback(downloadedBytes / expectedSize);
+              }
+            } catch (error) {
+              reject(error);
+            }
+          });
+
+          response.on('end', () => resolve());
+          response.on('error', reject);
         });
 
-        response.on('end', () => resolve());
-        response.on('error', reject);
+        request.on('error', reject);
       });
-    });
+    };
+
+    try {
+      await downloadWithRedirects(url);
+      await fileHandle.close();
+      await fs.rename(tempDestination, destination);
+    } catch (error) {
+      await fileHandle.close();
+      await fs.unlink(tempDestination).catch(() => {}); // Clean up temp file
+      throw error;
+    }
   }
 
   private async verifyModel(modelPath: string, expectedHash: string): Promise<boolean> {

@@ -43,7 +43,7 @@ export const SettingsPanel: React.FC = () => {
   }
 
   const handleModelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    updateSettings({ whisperModel: e.target.value as any });
+    updateSettings({ whisperModel: e.target.value });
   };
 
   const handleAutoTranscribeToggle = () => {
@@ -112,16 +112,10 @@ export const SettingsPanel: React.FC = () => {
                 <FormControl>
                   <FormLabel>Selected Model</FormLabel>
                   <Select value={settings.whisperModel} onChange={handleModelChange}>
-                    <option value="tiny.en">Tiny.en (Fast, English Only)</option>
-                    <option value="tiny">Tiny (Fast, All Languages)</option>
-                    <option value="base.en">Base.en (English Only)</option>
-                    <option value="base">Base (All Languages)</option>
-                    <option value="small.en">Small.en (English Only)</option>
-                    <option value="small">Small (All Languages)</option>
-                    <option value="medium.en">Medium.en (English Only)</option>
-                    <option value="medium">Medium (All Languages)</option>
-                    <option value="large-v1">Large v1</option>
-                    <option value="large">Large</option>
+                    <option value="tiny">Tiny (Fast, Balanced Accuracy)</option>
+                    <option value="base">Base (Standard Performance)</option>
+                    <option value="small">Small (Better Accuracy)</option>
+                    <option value="medium">Medium (Best Accuracy)</option>
                   </Select>
                 </FormControl>
                 <Divider />

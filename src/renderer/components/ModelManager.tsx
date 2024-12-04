@@ -13,28 +13,21 @@ import {
   useToast,
 } from '@chakra-ui/react';
 import { DownloadIcon, CheckIcon } from '@chakra-ui/icons';
-
-interface ModelInfo {
-  url: string;
-  size: number;
-  hash: string;
-}
+import { ModelInfo } from '../../shared/types';
 
 interface ModelDownloadProgress {
   [modelName: string]: number;
 }
 
 export const ModelManager: React.FC = () => {
-  const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [downloadedModels, setDownloadedModels] = useState<string[]>([]);
   const [downloadProgress, setDownloadProgress] = useState<ModelDownloadProgress>({});
   const [modelInfo, setModelInfo] = useState<{ [key: string]: ModelInfo }>({});
   const toast = useToast();
 
   useEffect(() => {
-    // Load initial model states
     refreshModelStates();
 
-    // Listen for download progress updates
     window.electron.on('model-download-progress', ({ modelName, progress }) => {
       setDownloadProgress(prev => ({
         ...prev,
@@ -43,27 +36,40 @@ export const ModelManager: React.FC = () => {
     });
 
     return () => {
-      // Cleanup listeners
       window.electron.removeAllListeners('model-download-progress');
     };
   }, []);
 
   const refreshModelStates = async () => {
     try {
-      const models = await window.electron.invoke('get-available-models');
-      setAvailableModels(models);
+      const downloaded = await window.electron.invoke('list-models');
+      setDownloadedModels(downloaded);
 
-      // Get info for all models
-      const modelNames = ['tiny', 'base', 'small', 'medium', 'large-v3'];
+      const models = await window.electron.invoke('get-available-models');
+      const modelNames = Object.keys(models);
+
       const infoPromises = modelNames.map(async name => {
-        const info = await window.electron.invoke('get-model-info', name);
-        return [name, info];
+        try {
+          const info = await window.electron.invoke('get-model-info', name);
+          return [name, info];
+        } catch (error) {
+          console.error(`Failed to get info for model ${name}:`, error);
+          return null;
+        }
       });
 
-      const infos = await Promise.all(infoPromises);
+      const infos = (await Promise.all(infoPromises))
+        .filter((info): info is [string, ModelInfo] => info !== null);
       setModelInfo(Object.fromEntries(infos));
     } catch (error) {
       console.error('Failed to refresh model states:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load model information',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
     }
   };
 
@@ -82,7 +88,6 @@ export const ModelManager: React.FC = () => {
         isClosable: true,
       });
 
-      // Refresh available models
       await refreshModelStates();
     } catch (error) {
       toast({
@@ -104,65 +109,92 @@ export const ModelManager: React.FC = () => {
     return `${mb.toFixed(1)} MB`;
   };
 
+  const getModelDescription = (modelName: string): string => {
+    const descriptions: Record<string, string> = {
+      tiny: 'Fast transcription, good for simple audio',
+      base: 'Balanced speed and accuracy',
+      small: 'Better accuracy, moderate processing time',
+      medium: 'Best accuracy, longer processing time'
+    };
+    return descriptions[modelName] || '';
+  };
+
   return (
-    <Card>
-      <CardHeader>
-        <Heading size="md">Whisper Models</Heading>
-      </CardHeader>
-      <CardBody>
-        <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4}>
-          {['tiny', 'base', 'small', 'medium', 'large-v3'].map((modelName) => {
-            const isDownloaded = availableModels.includes(modelName);
-            const progress = downloadProgress[modelName] || 0;
-            const info = modelInfo[modelName];
-            const isDownloading = progress > 0 && progress < 100;
+    <Box p={4} bg="white" borderRadius="md" shadow="sm">
+      <Heading size="md" mb={6}>Available Whisper Models</Heading>
+      <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={6}>
+        {Object.keys(modelInfo).map((modelName) => {
+          const isDownloaded = downloadedModels.includes(modelName);
+          const progress = downloadProgress[modelName] || 0;
+          const info = modelInfo[modelName];
+          const isDownloading = progress > 0 && progress < 100;
 
-            return (
-              <Card key={modelName} variant="outline">
-                <CardBody>
-                  <Stack spacing={3}>
-                    <Heading size="sm" textTransform="capitalize">
+          return (
+            <Card 
+              key={modelName} 
+              variant="outline" 
+              bg="gray.50" 
+              borderColor="gray.200"
+              transition="all 0.2s"
+              _hover={{ shadow: 'md' }}
+            >
+              <CardBody>
+                <Stack spacing={4}>
+                  <Box>
+                    <Text
+                      fontSize="lg"
+                      fontWeight="semibold"
+                      textTransform="capitalize"
+                      color="blue.600"
+                    >
                       {modelName}
-                    </Heading>
-                    
-                    {info && (
-                      <Text fontSize="sm" color="gray.600">
-                        Size: {formatSize(info.size)}
+                    </Text>
+                    <Text fontSize="sm" color="gray.600" mt={1}>
+                      {getModelDescription(modelName)}
+                    </Text>
+                  </Box>
+
+                  {info && (
+                    <Text fontSize="sm" color="gray.500">
+                      Size: {formatSize(info.size)}
+                    </Text>
+                  )}
+
+                  {isDownloading ? (
+                    <Box>
+                      <Progress 
+                        value={progress} 
+                        size="sm" 
+                        colorScheme="blue" 
+                        rounded="full"
+                        mb={2}
+                      />
+                      <Text fontSize="sm" color="gray.600" textAlign="center">
+                        {progress.toFixed(1)}% Complete
                       </Text>
-                    )}
-
-                    {isDownloading && (
-                      <Box>
-                        <Progress 
-                          value={progress} 
-                          size="sm" 
-                          colorScheme="blue" 
-                          mb={2}
-                        />
-                        <Text fontSize="sm" color="gray.600">
-                          {progress.toFixed(1)}% Complete
-                        </Text>
-                      </Box>
-                    )}
-
-                    {!isDownloading && (
-                      <Button
-                        leftIcon={isDownloaded ? <CheckIcon /> : <DownloadIcon />}
-                        colorScheme={isDownloaded ? "green" : "blue"}
-                        onClick={() => !isDownloaded && downloadModel(modelName)}
-                        isDisabled={isDownloaded}
-                      >
-                        {isDownloaded ? 'Downloaded' : 'Download'}
-                      </Button>
-                    )}
-                  </Stack>
-                </CardBody>
-              </Card>
-            );
-          })}
-        </SimpleGrid>
-      </CardBody>
-    </Card>
+                    </Box>
+                  ) : (
+                    <Button
+                      leftIcon={isDownloaded ? <CheckIcon /> : <DownloadIcon />}
+                      colorScheme={isDownloaded ? "green" : "blue"}
+                      onClick={() => !isDownloaded && downloadModel(modelName)}
+                      isDisabled={isDownloaded}
+                      size="md"
+                      width="full"
+                      variant={isDownloaded ? "solid" : "solid"}
+                      _hover={!isDownloaded ? { transform: 'translateY(-1px)' } : {}}
+                      transition="all 0.2s"
+                    >
+                      {isDownloaded ? 'Downloaded' : 'Download Model'}
+                    </Button>
+                  )}
+                </Stack>
+              </CardBody>
+            </Card>
+          );
+        })}
+      </SimpleGrid>
+    </Box>
   );
 };
 
