@@ -403,16 +403,6 @@
     "xcode_version": "13.0",
     "nodedir": "/Users/rudrakabir/Library/Caches/node-gyp/18.17.1",
     "python": "/opt/homebrew/opt/python@3.13/bin/python3.13",
-    "standalone_static_library": 1,
-    "metrics_registry": "https://registry.npmjs.org/",
-    "global_prefix": "/Users/rudrakabir/.nvm/versions/node/v18.17.1",
-    "local_prefix": "/Users/rudrakabir/Desktop/Transcribo",
-    "globalconfig": "/Users/rudrakabir/.nvm/versions/node/v18.17.1/etc/npmrc",
-    "userconfig": "/Users/rudrakabir/.npmrc",
-    "init_module": "/Users/rudrakabir/.npm-init.js",
-    "node_gyp": "/Users/rudrakabir/.nvm/versions/node/v18.17.1/lib/node_modules/npm/node_modules/node-gyp/bin/node-gyp.js",
-    "cache": "/Users/rudrakabir/.npm",
-    "user_agent": "npm/9.6.7 node/v18.17.1 darwin arm64 workspaces/false",
-    "prefix": "/Users/rudrakabir/.nvm/versions/node/v18.17.1"
+    "standalone_static_library": 1
   }
 }

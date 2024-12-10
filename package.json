@@ -13,11 +13,13 @@
     "build:preload": "tsc -p tsconfig.preload.json",
     "preview": "vite preview",
     "electron:build": "electron-builder",
-    "postinstall": "electron-builder install-app-deps"
+    "postinstall": "electron-builder install-app-deps",
+    "test": "jest"
   },
   "author": "",
   "license": "MIT",
   "devDependencies": {
+    "@jest/globals": "^29.7.0",
     "@types/better-sqlite3": "^7.6.3",
     "@types/electron": "^1.6.10",
     "@types/jest": "^29.5.14",
@@ -35,8 +37,10 @@
     "electron-builder": "^23.6.0",
     "electron-rebuild": "^3.2.9",
     "eslint": "^8.40.0",
+    "jest": "^29.7.0",
     "node-addon-api": "^8.3.0",
     "node-gyp": "^10.3.1",
+    "ts-jest": "^29.2.5",
     "ts-node": "^10.9.1",
     "typescript": "^5.0.4",
     "vite": "^4.3.5"
