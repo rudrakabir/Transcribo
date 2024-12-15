@@ -1,7 +1,4 @@
 node_modules
 .DS_Store
 .DS_Store
-native/whisper
-dist
-dist/
 Test/230701_1804.mp3

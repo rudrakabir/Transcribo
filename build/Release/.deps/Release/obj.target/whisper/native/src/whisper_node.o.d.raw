@@ -1,2 +1,0 @@
-Release/obj.target/whisper/native/src/whisper_node.o: \
-  ../native/src/whisper_node.cpp
